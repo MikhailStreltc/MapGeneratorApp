@@ -2,7 +2,7 @@ import sys
 import pandas as pd
 import folium
 import os
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QLabel, QVBoxLayout, QWidget, QTabWidget, QComboBox
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QLabel, QVBoxLayout, QWidget, QTabWidget, QComboBox, QLineEdit, QHBoxLayout
 from PyQt5.QtCore import Qt, QUrl
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 
@@ -113,9 +113,29 @@ class MapGeneratorApp(QMainWindow):
         self.process_button.setEnabled(False)  # Отключаем кнопку до выбора файла или папки
         layout.addWidget(self.process_button)
 
-        # Метка для отображения результата
-        self.result_label = QLabel("")
-        layout.addWidget(self.result_label)
+        # # Метка для отображения результата
+        # self.result_label = QLabel("")
+        # layout.addWidget(self.result_label)
+
+        input_layout = QHBoxLayout()
+
+        self.name_input = QLineEdit()
+        self.name_input.setPlaceholderText("Название точки")
+        input_layout.addWidget(self.name_input)
+
+        self.lat_input = QLineEdit()
+        self.lat_input.setPlaceholderText("Широта (Coordinate_N)")
+        input_layout.addWidget(self.lat_input)
+
+        self.lon_input = QLineEdit()
+        self.lon_input.setPlaceholderText("Долгота (Coordinate_E)")
+        input_layout.addWidget(self.lon_input)
+
+        self.add_point_button = QPushButton("Добавить точку")
+        self.add_point_button.clicked.connect(self.add_point_to_map)
+        input_layout.addWidget(self.add_point_button)
+
+        layout.addLayout(input_layout)
 
         #Tile chooser
         self.basemap_selector = QComboBox()
@@ -216,7 +236,7 @@ class MapGeneratorApp(QMainWindow):
             ).add_to(mymap)
         return mymap
     
-    #updete empty map depends with settings
+    #update empty map depends with settings
     def update_empty_map(self):
         selected_basemap = self.basemap_selector.currentText()
         base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -225,6 +245,42 @@ class MapGeneratorApp(QMainWindow):
             self.map_view.setUrl(QUrl.fromLocalFile(map_path))
         else:
             print(F'Файл подложки {map_path} не найден.')
+
+    #adding point on the empty map
+    def add_point_to_map(self):
+        try:
+            #getting gata out from fields
+            name = self.name_input.text()
+            lat = float(self.lat_input.text())
+            lon = float(self.lon_input.text())
+
+            if not name:
+                raise ValueError('Empty is not possible')
+        
+            if not hasattr(self, 'current_map'):
+                self.current_map = folium.Map(location=[0, 0], zoom_start=4, tiles=self.basemap_selector.currentText())
+
+            # Добавление точки на карту
+            folium.Marker(
+                location=[lat, lon],
+                popup=name,
+                icon=folium.Icon(color='blue')
+            ).add_to(self.current_map)
+
+            # Сохранение карты во временный HTML-файл
+            temp_map_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'maps', 'temp_map.html')
+            self.current_map.save(temp_map_path)
+
+            # Обновление отображения карты
+            self.map_view.setUrl(QUrl.fromLocalFile(temp_map_path))
+
+            # Очистка полей ввода
+            self.name_input.clear()
+            self.lat_input.clear()
+            self.lon_input.clear()
+
+        except ValueError as e:
+            print(f'Exeption: {e}')
 
 # Запуск приложения
 app = QApplication(sys.argv)
