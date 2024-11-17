@@ -82,6 +82,31 @@ class MapGeneratorApp(QMainWindow):
         self.file_button.clicked.connect(self.select_file)
         layout.addWidget(self.file_button)
 
+        #layout for horizontal selector of fields
+        fields_layout = QHBoxLayout()
+        
+        lat_label = QLabel("Широта:")
+        fields_layout.addWidget(lat_label)
+        self.lat_field_selector = QComboBox()
+        self.lat_field_selector.setMinimumWidth(150)
+        fields_layout.addWidget(self.lat_field_selector)
+
+        # Метка и выпадающий список для долготы
+        lon_label = QLabel("Долгота:")
+        fields_layout.addWidget(lon_label)
+        self.lon_field_selector = QComboBox()
+        self.lon_field_selector.setMinimumWidth(150)
+        fields_layout.addWidget(self.lon_field_selector)
+
+        # Метка и выпадающий список для названия
+        name_label = QLabel("Название:")
+        fields_layout.addWidget(name_label)
+        self.name_field_selector = QComboBox()
+        self.name_field_selector.setMinimumWidth(150)
+        fields_layout.addWidget(self.name_field_selector)
+
+        layout.addLayout(fields_layout)
+
         # Кнопка выбора папки
         self.folder_button = QPushButton("Выбрать папку с CSV файлами")
         self.folder_button.clicked.connect(self.select_folder)
@@ -99,8 +124,6 @@ class MapGeneratorApp(QMainWindow):
         #Метка для пути сохранения
         self.save_path_label = QLabel("Путь для сохранения не выбран")
         layout.addWidget(self.save_path_label)
-
-
 
         self.tab_settings.setLayout(layout)
 
@@ -160,6 +183,27 @@ class MapGeneratorApp(QMainWindow):
             self.path_label.setText(f"Выбран файл: {file_path}")
             self.process_button.setEnabled(True)
 
+        #reading headers of csv
+        try:
+            df = pd.read_csv(file_path, nrows=0)
+            columns = df.columns.to_list()
+
+            #fill selectors
+            self.lat_field_selector.clear()
+            self.lat_field_selector.addItems(columns)
+            self.lat_field_selector.setEnabled(True)
+
+            self.lon_field_selector.clear()
+            self.lon_field_selector.addItems(columns)
+            self.lon_field_selector.setEnabled(True)
+
+            self.name_field_selector.clear()
+            self.name_field_selector.addItems(columns)
+            self.name_field_selector.setEnabled(True)
+        except Exception as e:
+            print(f"Error while reading CSV: {e}")
+
+
     # Функция выбора папки
     def select_folder(self):
         folder_path = QFileDialog.getExistingDirectory(self, "Выберите папку с CSV файлами")
@@ -195,14 +239,24 @@ class MapGeneratorApp(QMainWindow):
                         processed_files += self.process_file(file_path)
         
         # Обновление метки результата
-        self.result_label.setText(f"Обработано файлов: {processed_files}")
-        self.result_label.setAlignment(Qt.AlignCenter)
+        # self.result_label.setText(f"Обработано файлов: {processed_files}")
+        # self.result_label.setAlignment(Qt.AlignCenter)
 
     # Функция для обработки отдельного файла
     def process_file(self, file_path):
         try:
             df = pd.read_csv(file_path)
-            prepeared_df = df[['Cyrilic_name_of_site', 'Coordinate_N', 'Coordinate_E']].dropna(how='any')
+
+            #use fields from selectors
+            lat_field = self.lat_field_selector.currentText()
+            lon_field = self.lon_field_selector.currentText()
+            name_field = self.name_field_selector.currentText()
+
+            if not all(field in df.columns for field in [lat_field, lon_field, name_field]):
+                raise ValueError("Выбранные поля отсутствуют в CSV-файле.")
+
+            prepeared_df = df[[name_field, lat_field, lon_field]].dropna(how='any')
+            prepeared_df.columns = ['Name', 'Latitude', 'Longitude']
             output_path = os.path.join(self.save_folder, f"{os.path.basename(file_path).split('.')[0]}.html")
 
             self.mapping(prepeared_df).save(output_path)
@@ -215,23 +269,18 @@ class MapGeneratorApp(QMainWindow):
         
     # Функция для создания карты
     def mapping(self, prep_df):
-        center_lat = prep_df['Coordinate_N'].mean()
-        center_lon = prep_df['Coordinate_E'].mean()
+        center_lat = prep_df['Latitude'].mean()
+        center_lon = prep_df['Longitude'].mean()
 
         selected_basemap = self.basemap_selector.currentText()
 
         # Создаем карту с выбранной подложкой
-        if selected_basemap == "OpenStreetMap":
-            mymap = folium.Map(location=[center_lat, center_lon], zoom_start=6, tiles="OpenStreetMap")
-        elif selected_basemap == "CartoDB Positron":
-            mymap = folium.Map(location=[center_lat, center_lon], zoom_start=6, tiles="CartoDB positron")
-        elif selected_basemap == "CartoDB Dark Matter":
-            mymap = folium.Map(location=[center_lat, center_lon], zoom_start=6, tiles="CartoDB dark_matter")
+        mymap = folium.Map(location=[center_lat, center_lon], zoom_start=6, tiles=selected_basemap)
 
         for _, row in prep_df.iterrows():
             folium.Marker(
-                location=[row['Coordinate_N'], row['Coordinate_E']],
-                popup=row['Cyrilic_name_of_site'],
+                location=[row['Latitude'], row['Longitude']],
+                popup=row['Name'],
                 icon=folium.Icon(color='blue')
             ).add_to(mymap)
         return mymap
@@ -258,7 +307,7 @@ class MapGeneratorApp(QMainWindow):
                 raise ValueError('Empty is not possible')
         
             if not hasattr(self, 'current_map'):
-                self.current_map = folium.Map(location=[0, 0], zoom_start=4, tiles=self.basemap_selector.currentText())
+                self.current_map = folium.Map(location=[lon, lat],zoom_start=4, tiles=self.basemap_selector.currentText())
 
             # Добавление точки на карту
             folium.Marker(
