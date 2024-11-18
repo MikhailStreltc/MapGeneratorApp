@@ -2,6 +2,7 @@ import sys
 import pandas as pd
 import folium
 import os
+from folium.plugins import BeautifyIcon
 from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QLabel, QVBoxLayout, QWidget, QTabWidget, QComboBox, QLineEdit, QHBoxLayout
 from PyQt5.QtCore import Qt, QUrl
 from PyQt5.QtWebEngineWidgets import QWebEngineView
@@ -147,11 +148,11 @@ class MapGeneratorApp(QMainWindow):
         input_layout.addWidget(self.name_input)
 
         self.lat_input = QLineEdit()
-        self.lat_input.setPlaceholderText("Широта (Coordinate_N)")
+        self.lat_input.setPlaceholderText("Широта")
         input_layout.addWidget(self.lat_input)
 
         self.lon_input = QLineEdit()
-        self.lon_input.setPlaceholderText("Долгота (Coordinate_E)")
+        self.lon_input.setPlaceholderText("Долгота")
         input_layout.addWidget(self.lon_input)
 
         self.add_point_button = QPushButton("Добавить точку")
@@ -167,6 +168,23 @@ class MapGeneratorApp(QMainWindow):
         self.basemap_selector.addItem("CartoDB Dark Matter")
         self.basemap_selector.currentIndexChanged.connect(self.update_empty_map)
         layout.addWidget(self.basemap_selector)
+
+        #style of type and color point selector
+        marker_style_layout = QHBoxLayout()
+
+        #Type point selector
+        self.marker_type_selector = QComboBox()
+        self.marker_type_selector.addItems(["Default", "Circle", "Circle-dot", "Doughnut", "Rectangle-dot"])
+        marker_style_layout.addWidget(QLabel("Type of point"))
+        marker_style_layout.addWidget(self.marker_type_selector)
+
+        #Color point selector
+        self.marker_color_selector = QComboBox()
+        self.marker_color_selector.addItems(["blue", "red", "green", "purple", "orange"])
+        marker_style_layout.addWidget(QLabel("Color of point"))
+        marker_style_layout.addWidget(self.marker_color_selector)
+
+        layout.addLayout(marker_style_layout)
 
         #виджет для отображения карты
         self.map_view =QWebEngineView()
@@ -309,11 +327,20 @@ class MapGeneratorApp(QMainWindow):
             if not hasattr(self, 'current_map'):
                 self.current_map = folium.Map(location=[lon, lat],zoom_start=4, tiles=self.basemap_selector.currentText())
 
+            marker_type = self.marker_type_selector.currentText()
+            marker_color = self.marker_color_selector.currentText()
+
+            icon = None
+            if marker_type == 'Default':
+                icon = BeautifyIcon(background_color=marker_color, icon_shape='marker', border_width=1)
+            else:
+                icon = BeautifyIcon(background_color=marker_color, icon_shape=marker_type.lower(), border_width=1)
+
             # Добавление точки на карту
             folium.Marker(
                 location=[lat, lon],
                 popup=name,
-                icon=folium.Icon(color='blue')
+                icon=icon
             ).add_to(self.current_map)
 
             # Сохранение карты во временный HTML-файл
