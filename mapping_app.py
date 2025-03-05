@@ -3,9 +3,10 @@ import pandas as pd
 import folium
 import os
 from folium.plugins import BeautifyIcon
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QLabel, QVBoxLayout, QWidget, QTabWidget, QComboBox, QLineEdit, QHBoxLayout
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QLabel, QVBoxLayout, QWidget, QTabWidget, QComboBox, QLineEdit, QHBoxLayout, QColorDialog
 from PyQt5.QtCore import Qt, QUrl
 from PyQt5.QtWebEngineWidgets import QWebEngineView
+from PyQt5.QtGui import QColor
 
 # Основное окно приложения
 class MapGeneratorApp(QMainWindow):
@@ -16,6 +17,7 @@ class MapGeneratorApp(QMainWindow):
         self.selected_folder = None
         self.selected_file = None
         self.save_folder = None
+        self.current_marker_color = "blue"  # Инициализация цвета по умолчанию
 
         self.setWindowTitle("CSV to Map Generator")
         self.setGeometry(200, 200, 600, 500)
@@ -179,10 +181,12 @@ class MapGeneratorApp(QMainWindow):
         marker_style_layout.addWidget(self.marker_type_selector)
 
         #Color point selector
-        self.marker_color_selector = QComboBox()
-        self.marker_color_selector.addItems(["blue", "red", "green", "purple", "orange"])
+        self.marker_color_button = QPushButton()
+        self.marker_color_button.setFixedSize(30, 30)
+        self.marker_color_button.setStyleSheet("background-color: blue;")
+        self.marker_color_button.clicked.connect(self.choose_marker_color)
         marker_style_layout.addWidget(QLabel("Color of point"))
-        marker_style_layout.addWidget(self.marker_color_selector)
+        marker_style_layout.addWidget(self.marker_color_button)
 
         layout.addLayout(marker_style_layout)
 
@@ -285,21 +289,68 @@ class MapGeneratorApp(QMainWindow):
             print(f"Ошибка при обработке файла {file_path}: {e}")
             return 0
         
-    # Функция для создания карты
+    def create_marker_icon(self, marker_type, color):
+        """Создает иконку маркера в зависимости от выбранного типа и цвета"""
+        if marker_type == "Default":
+            return BeautifyIcon(
+                icon="info-sign",
+                icon_shape="marker",
+                background_color=color,
+                text_color="white"
+            )
+        elif marker_type == "Circle":
+            return BeautifyIcon(
+                icon="info-sign",
+                icon_shape="circle",
+                background_color=color,
+                text_color="white"
+            )
+        elif marker_type == "Circle-dot":
+            return BeautifyIcon(
+                icon="info-sign",
+                icon_shape="circle-dot",
+                background_color=color,
+                text_color="white"
+            )
+        elif marker_type == "Doughnut":
+            return BeautifyIcon(
+                icon="info-sign",
+                icon_shape="doughnut",
+                background_color=color,
+                text_color="white"
+            )
+        elif marker_type == "Rectangle-dot":
+            return BeautifyIcon(
+                icon="info-sign",
+                icon_shape="rectangle-dot",
+                background_color=color,
+                text_color="white"
+            )
+        else:
+            return BeautifyIcon(
+                icon="info-sign",
+                icon_shape="marker",
+                background_color=color,
+                text_color="white"
+            )
+
     def mapping(self, prep_df):
         center_lat = prep_df['Latitude'].mean()
         center_lon = prep_df['Longitude'].mean()
-
         selected_basemap = self.basemap_selector.currentText()
+        marker_type = self.marker_type_selector.currentText()
 
         # Создаем карту с выбранной подложкой
         mymap = folium.Map(location=[center_lat, center_lon], zoom_start=6, tiles=selected_basemap)
 
         for _, row in prep_df.iterrows():
+            # Создаем иконку для каждого маркера
+            icon = self.create_marker_icon(marker_type, self.current_marker_color)
+            
             folium.Marker(
                 location=[row['Latitude'], row['Longitude']],
                 popup=row['Name'],
-                icon=folium.Icon(color='blue')
+                icon=icon
             ).add_to(mymap)
         return mymap
     
@@ -316,25 +367,19 @@ class MapGeneratorApp(QMainWindow):
     #adding point on the empty map
     def add_point_to_map(self):
         try:
-            #getting gata out from fields
             name = self.name_input.text()
             lat = float(self.lat_input.text())
             lon = float(self.lon_input.text())
+            marker_type = self.marker_type_selector.currentText()
 
             if not name:
                 raise ValueError('Empty is not possible')
         
             if not hasattr(self, 'current_map'):
-                self.current_map = folium.Map(location=[lon, lat],zoom_start=4, tiles=self.basemap_selector.currentText())
+                self.current_map = folium.Map(location=[lon, lat], zoom_start=4, tiles=self.basemap_selector.currentText())
 
-            marker_type = self.marker_type_selector.currentText()
-            marker_color = self.marker_color_selector.currentText()
-
-            icon = None
-            if marker_type == 'Default':
-                icon = BeautifyIcon(background_color=marker_color, icon_shape='marker', border_width=1)
-            else:
-                icon = BeautifyIcon(background_color=marker_color, icon_shape=marker_type.lower(), border_width=1)
+            # Создаем иконку для маркера
+            icon = self.create_marker_icon(marker_type, self.current_marker_color)
 
             # Добавление точки на карту
             folium.Marker(
@@ -357,6 +402,12 @@ class MapGeneratorApp(QMainWindow):
 
         except ValueError as e:
             print(f'Exeption: {e}')
+
+    def choose_marker_color(self):
+        color = QColorDialog.getColor()
+        if color.isValid():
+            self.marker_color_button.setStyleSheet(f"background-color: {color.name()};")
+            self.current_marker_color = color.name()
 
 # Запуск приложения
 app = QApplication(sys.argv)
