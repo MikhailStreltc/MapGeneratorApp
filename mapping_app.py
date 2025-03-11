@@ -3,7 +3,7 @@ import pandas as pd
 import folium
 import os
 from folium.plugins import BeautifyIcon
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QLabel, QVBoxLayout, QWidget, QTabWidget, QComboBox, QLineEdit, QHBoxLayout, QColorDialog
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QLabel, QVBoxLayout, QWidget, QTabWidget, QComboBox, QLineEdit, QHBoxLayout, QColorDialog, QSpinBox
 from PyQt5.QtCore import Qt, QUrl
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 from PyQt5.QtGui import QColor
@@ -180,6 +180,13 @@ class MapGeneratorApp(QMainWindow):
         marker_style_layout.addWidget(QLabel("Type of point"))
         marker_style_layout.addWidget(self.marker_type_selector)
 
+        #Border width selector
+        self.border_width_selector = QSpinBox()
+        self.border_width_selector.setRange(0, 10)
+        self.border_width_selector.setValue(1)
+        marker_style_layout.addWidget(QLabel("Border width"))
+        marker_style_layout.addWidget(self.border_width_selector)
+
         #Color point selector
         self.marker_color_button = QPushButton()
         self.marker_color_button.setFixedSize(30, 30)
@@ -291,47 +298,55 @@ class MapGeneratorApp(QMainWindow):
         
     def create_marker_icon(self, marker_type, color):
         """Создает иконку маркера в зависимости от выбранного типа и цвета"""
+        border_width = self.border_width_selector.value()
+
         if marker_type == "Default":
             return BeautifyIcon(
                 icon="info-sign",
                 icon_shape="marker",
                 background_color=color,
-                text_color="white"
+                text_color="white",
+                border_width=border_width
             )
         elif marker_type == "Circle":
             return BeautifyIcon(
                 icon="info-sign",
                 icon_shape="circle",
                 background_color=color,
-                text_color="white"
+                text_color="white",
+                border_width=border_width
             )
         elif marker_type == "Circle-dot":
             return BeautifyIcon(
                 icon="info-sign",
                 icon_shape="circle-dot",
                 background_color=color,
-                text_color="white"
+                text_color="white",
+                border_width=border_width
             )
         elif marker_type == "Doughnut":
             return BeautifyIcon(
                 icon="info-sign",
                 icon_shape="doughnut",
                 background_color=color,
-                text_color="white"
+                text_color="white",
+                border_width=border_width
             )
         elif marker_type == "Rectangle-dot":
             return BeautifyIcon(
                 icon="info-sign",
                 icon_shape="rectangle-dot",
                 background_color=color,
-                text_color="white"
+                text_color="white",
+                border_width=border_width
             )
         else:
             return BeautifyIcon(
                 icon="info-sign",
                 icon_shape="marker",
                 background_color=color,
-                text_color="white"
+                text_color="white",
+                border_width=border_width
             )
 
     def mapping(self, prep_df):
@@ -377,7 +392,9 @@ class MapGeneratorApp(QMainWindow):
         
             if not hasattr(self, 'current_map'):
                 self.current_map = folium.Map(location=[lon, lat], zoom_start=4, tiles=self.basemap_selector.currentText())
-
+            else:
+                self.current_map.location = [lon, lat]
+            
             # Создаем иконку для маркера
             icon = self.create_marker_icon(marker_type, self.current_marker_color)
 
