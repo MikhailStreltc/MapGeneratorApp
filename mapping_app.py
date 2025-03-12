@@ -3,7 +3,7 @@ import pandas as pd
 import folium
 import os
 from folium.plugins import BeautifyIcon
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QLabel, QVBoxLayout, QWidget, QTabWidget, QComboBox, QLineEdit, QHBoxLayout, QColorDialog, QSpinBox
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QLabel, QVBoxLayout, QWidget, QTabWidget, QComboBox, QLineEdit, QHBoxLayout, QColorDialog, QSpinBox, QDockWidget, QTableWidgetItem, QTableWidget, QToolButton, QToolBar
 from PyQt5.QtCore import Qt, QUrl
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 from PyQt5.QtGui import QColor
@@ -44,6 +44,8 @@ class MapGeneratorApp(QMainWindow):
         container = QWidget()
         container.setLayout(main_layout)
         self.setCentralWidget(container)
+
+        self.init_attribute_table()
 
         # Стилизация интерфейса
         self.setStyleSheet("""
@@ -358,6 +360,9 @@ class MapGeneratorApp(QMainWindow):
         # Создаем карту с выбранной подложкой
         mymap = folium.Map(location=[center_lat, center_lon], zoom_start=6, tiles=selected_basemap)
 
+        self.table_widget.clear()
+        self.table_widget.setRowCount(0)
+
         for _, row in prep_df.iterrows():
             # Создаем иконку для каждого маркера
             icon = self.create_marker_icon(marker_type, self.current_marker_color)
@@ -367,6 +372,21 @@ class MapGeneratorApp(QMainWindow):
                 popup=row['Name'],
                 icon=icon
             ).add_to(mymap)
+
+            # Добавляем данные в таблицу
+            row_position = self.table_widget.rowCount()
+            self.table_widget.insertRow(row_position)
+            self.table_widget.setItem(row_position, 0, QTableWidgetItem(row['Name']))
+            self.table_widget.setItem(row_position, 1, QTableWidgetItem(str(row['Latitude'])))
+            self.table_widget.setItem(row_position, 2, QTableWidgetItem(str(row['Longitude'])))
+
+        # Сохранение карты во временный HTML-файл
+        temp_map_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'maps', 'temp_map.html')
+        mymap.save(temp_map_path)
+
+        # Обновление отображения карты
+        self.map_view.setUrl(QUrl.fromLocalFile(temp_map_path))
+
         return mymap
     
     #update empty map depends with settings
@@ -412,6 +432,13 @@ class MapGeneratorApp(QMainWindow):
             # Обновление отображения карты
             self.map_view.setUrl(QUrl.fromLocalFile(temp_map_path))
 
+            # Добавляем данные в таблицу
+            row_position = self.table_widget.rowCount()
+            self.table_widget.insertRow(row_position)
+            self.table_widget.setItem(row_position, 0, QTableWidgetItem(name))
+            self.table_widget.setItem(row_position, 1, QTableWidgetItem(str(lat)))
+            self.table_widget.setItem(row_position, 2, QTableWidgetItem(str(lon)))
+
             # Очистка полей ввода
             self.name_input.clear()
             self.lat_input.clear()
@@ -426,6 +453,45 @@ class MapGeneratorApp(QMainWindow):
             self.marker_color_button.setStyleSheet(f"background-color: {color.name()};")
             self.current_marker_color = color.name()
 
+    def init_attribute_table(self):
+        # Создаем док-виджет
+        self.dock = QDockWidget("Таблица атрибутов", self)
+        self.dock.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
+
+        # Создаем таблицу
+        self.table_widget = QTableWidget()
+        self.table_widget.setColumnCount(3)  # Установите количество столбцов
+        self.table_widget.setHorizontalHeaderLabels(["Название", "Широта", "Долгота"])
+
+        # Устанавливаем таблицу в док-виджет
+        self.dock.setWidget(self.table_widget)
+
+        # Создаем кнопку для сворачивания/разворачивания
+        self.toggle_button = QToolButton(self)
+        self.toggle_button.setArrowType(Qt.RightArrow)
+        self.toggle_button.clicked.connect(self.toggle_dock)
+
+        # Создаем виджет для заголовка и добавляем в него кнопку
+        title_bar_widget = QWidget()
+        title_bar_layout = QHBoxLayout()
+        title_bar_layout.addWidget(self.toggle_button)
+        title_bar_layout.addStretch(1)  # Добавляем растяжку, чтобы кнопка была справа
+        title_bar_widget.setLayout(title_bar_layout)
+
+        # Устанавливаем виджет заголовка в док-виджет
+        self.dock.setTitleBarWidget(title_bar_widget)
+
+        # Добавляем док-виджет в главное окно
+        self.addDockWidget(Qt.RightDockWidgetArea, self.dock)
+
+    def toggle_dock(self):
+        if self.table_widget.isVisible():
+            self.table_widget.hide()
+            self.toggle_button.setArrowType(Qt.RightArrow)
+        else:
+            self.table_widget.show()
+            self.toggle_button.setArrowType(Qt.LeftArrow)
+            
 # Запуск приложения
 app = QApplication(sys.argv)
 window = MapGeneratorApp()
